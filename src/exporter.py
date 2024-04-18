@@ -33,6 +33,7 @@ def ExportFunPy(function: callable, rename=None, filepath='exportedfuns.py'):
     for node in tree.body:       
         if isinstance(node, ast.FunctionDef) and node.name == rename:
             # Replace the function's body with new content
+            node.args = ast.parse(func_code).body[0].args 
             node.body = ast.parse(func_code).body[0].body            
             found=True
                 
