@@ -1,5 +1,4 @@
 import sys
-sys.path.append('../../src/')
 from SimpleThirdPersonCamera.SimpleThirdPersonCamera import SimpleThirdPersonCamera, SIMPLE_THIRD_PERSON_CAMERA_SIDE_CENTER
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.Loader import Loader
