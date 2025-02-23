@@ -1,0 +1,39 @@
+import manifold3d as m3d
+import numpy as np
+
+def generate_gear(num_teeth=12, pitch_radius=10, tooth_depth=2, thickness=5):
+    angle_step = 2 * np.pi / num_teeth
+    vertices = []
+    
+    for i in range(num_teeth):
+        angle = i * angle_step
+        next_angle = (i + 1) * angle_step
+        
+        # Define tooth shape (approximate trapezoidal profile)
+        r1 = pitch_radius - tooth_depth / 2
+        r2 = pitch_radius + tooth_depth / 2
+        
+        # Points of the tooth
+        v0 = (r1 * np.cos(angle), r1 * np.sin(angle), 0)
+        v1 = (r2 * np.cos(angle + angle_step / 3), r2 * np.sin(angle + angle_step / 3), 0)
+        v2 = (r2 * np.cos(next_angle - angle_step / 3), r2 * np.sin(next_angle - angle_step / 3), 0)
+        v3 = (r1 * np.cos(next_angle), r1 * np.sin(next_angle), 0)
+        
+    #vertices.extend([v0, v1, v2, v3])
+    polygon_points = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    polygons_points = [polygon_points]
+
+    # create a cross-section
+    cross_section = m3d.CrossSection(polygons_points)
+    
+    # Create a 3D shape from the vertices    
+    shape = m3d.Manifold.extrude(vertices, thickness)
+    return shape
+
+def save_gear_as_glb(filename="gear.glb", num_teeth=12, pitch_radius=10, tooth_depth=2, thickness=5):
+    gear = generate_gear(num_teeth, pitch_radius, tooth_depth, thickness)
+    gear.Save(filename)
+    print(f"Gear saved as {filename}")
+
+# Example usage
+save_gear_as_glb("gear.glb", num_teeth=20, pitch_radius=15, tooth_depth=3, thickness=6)
