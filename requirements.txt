@@ -1,3 +1,8 @@
 zeroapi
 panda3d-gltf
 panda3d
+jupyter
+sympy
+numpy
+scipy
+matplotlib

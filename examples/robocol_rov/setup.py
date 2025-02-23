@@ -9,7 +9,7 @@ setup(
             },
 
             # Set up output logging, important for GUI apps!
-            'log_filename': '$USER_APPDATA/Asteroids/output.log',
+            'log_filename': 'output.log',
             'log_append': False,
 
             # Specify which files are included with the distribution

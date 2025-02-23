@@ -1,3 +1,4 @@
 zeroapi
 panda3d-gltf
 panda3d
+numpy

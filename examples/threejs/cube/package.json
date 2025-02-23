@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "browserify": "^17.0.0",
+    "three": "^0.163.0",
+    "zeromq": "^5.3.1"
+  },
+  "devDependencies": {
+    "vite": "^5.2.10"
+  }
+}
