@@ -36,6 +36,9 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Data files in h5py format
+.h5
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
