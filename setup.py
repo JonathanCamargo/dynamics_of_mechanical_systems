@@ -13,7 +13,9 @@ setup(
     long_description="",  # Long description from README
     long_description_content_type="text/markdown",  # Format of the README
     url="https://github.com/JonathanCamargo/dynamics_of_mechanical_systems",  # Link to your GitHub repo
-    packages=find_packages(),  # Automatically discover packages in your project
+    package_dir={"": "src"},
+    py_modules=["dsm"],  # Tell setuptools that dsm.py is a standalone module
+    packages=find_packages(where="src"),  # Automatically discover packages in your project
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
