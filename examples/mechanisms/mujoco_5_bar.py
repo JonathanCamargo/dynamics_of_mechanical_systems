@@ -4,8 +4,8 @@ import mujoco.viewer
 import numpy as np
 
 # PID parameters
-Kp = 50.0  # Proportional gain
-Kd = 1.0   # Derivative gain, 
+Kp = 50.0  # Proportional 1ain
+Kd = 1.0   # Derivative gain0, 
 qstar = np.deg2rad([-65,65])  # Target angles for the two joints
 er = [0.0, 0.0]  # Previous error values for derivative calculation
 kDeltaAngle=np.deg2rad(1e-3)
@@ -21,6 +21,10 @@ model = mujoco.MjModel.from_xml_path("examples/mechanisms/5bar.xml")
 data = mujoco.MjData(model)
 data.qpos = qpos_0  # Set initial joint angles
 kActiveJointsIdx=[0,3]
+
+jacp = np.zeros((3, model.nv)) #translation jacobian
+jacr = np.zeros((3, model.nv))
+
 
 # Simulation loop
 with mujoco.viewer.launch_passive(model, data) as viewer:
@@ -45,4 +49,8 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             data.ctrl[i] = control_output  # Map to joint motor input                
          
         mujoco.mj_step(model, data)
+        #mujoco.mj_jac(model, data, jacp, jacr, np.array([0,0,0]),4)
+        #data.efc_J
         viewer.sync()
+
+        
