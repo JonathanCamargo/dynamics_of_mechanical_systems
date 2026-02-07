@@ -3,9 +3,7 @@
   <compiler inertiafromgeom="true"/>
 
   <worldbody>
-    <light name="top" pos="0 0 2"/>
-    <camera name="side" pos="0 -5 1" xyaxes="1 0 0 0 0.5 1"/>
-
+    <light name="top" pos="0 0 2"/>    
     <!-- First link: attached to world -->
     <body name="link1" pos="0 0 1.5">
       <joint name="hinge1" type="hinge" axis="0 1 0" damping="0.05"/>

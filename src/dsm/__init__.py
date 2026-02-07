@@ -3,6 +3,20 @@ from sympy import symbols
 from sympy.physics.mechanics import dynamicsymbols
 import numpy as np
 import matplotlib.pyplot as plt
+from importlib.resources import files
+
+
+def get_asset_path(name):
+    """Return the path to a bundled asset file.
+
+    Usage:
+        path = dsm.get_asset_path("mujoco_models/pendulum.xml")
+    """
+    parts = name.replace("\\", "/").split("/")
+    resource = files("dsm.assets")
+    for part in parts:
+        resource = resource / part
+    return str(resource)
 
 def getComponents(expr,frame,simplify=True):
     if simplify:
