@@ -1,7 +1,7 @@
 import sympy
 from sympy import symbols
 from sympy.physics.mechanics import dynamicsymbols,ReferenceFrame
-from dsm import getComponents
+from .. import getComponents
 import numpy as np
 import scipy
 import matplotlib.pyplot as plt

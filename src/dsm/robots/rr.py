@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sympy import symbols
 from sympy.physics.mechanics import dynamicsymbols,ReferenceFrame
-from dsm import getComponents
+from .. import getComponents
 from scipy.optimize import least_squares
 
 class rr:
