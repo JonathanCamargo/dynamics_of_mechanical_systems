@@ -1,11 +1,8 @@
+-e .
 zeroapi
 panda3d-gltf
 panda3d
 jupyter
-sympy
-numpy
-scipy
-matplotlib
 pygame
 mujoco
 ipywidgets

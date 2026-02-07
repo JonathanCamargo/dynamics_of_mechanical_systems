@@ -10,7 +10,7 @@ setup(
     author="Jonathan Camargo",  # Author's name
     author_email="jon-cama@uniandes.edu.co",  # Replace with your email
     description="A package for dynamics of mechanical systems",  # Short description
-    long_description="",  # Long description from README
+    long_description=long_description,  # Long description from README
     long_description_content_type="text/markdown",  # Format of the README
     url="https://github.com/JonathanCamargo/dynamics_of_mechanical_systems",  # Link to your GitHub repo
     package_dir={"": "src"},
@@ -21,12 +21,11 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    install_requires=[  # List of dependencies for your project
-        # Example:
-        # "numpy>=1.21.0",
-        # "scipy>=1.7.0",
+    install_requires=[
         "numpy",
         "scipy",
+        "sympy",
+        "matplotlib",
     ],
     extras_require={  # Optional dependencies (for development, testing, etc.)
         "dev": [
@@ -34,11 +33,11 @@ setup(
             "sphinx>=4.0",
         ],
     },
-    python_requires=">=3.6",  # Minimum Python version
+    python_requires=">=3.8",
     include_package_data=True,  # Include non-Python files (e.g., data, docs)
     package_data={
         # Include additional files such as .txt, .csv, etc. in your package
-        "your_package_name": ["data/*.txt", "docs/*.md"],
+        "": ["data/*.txt", "docs/*.md"],
     },
     entry_points={  # If you have command-line scripts, add them here
         "console_scripts": [
