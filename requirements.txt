@@ -7,3 +7,7 @@ numpy
 scipy
 matplotlib
 pygame
+mujoco
+ipywidgets
+mediapy
+pytest
