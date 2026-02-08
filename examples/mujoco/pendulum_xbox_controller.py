@@ -7,7 +7,7 @@ import mujoco
 import pygame
 import time
 
-import dsm
+import dms
 
 # Torque scaling: joystick horizontal axis [-1, 1] maps to [-MAX_TORQUE, MAX_TORQUE]
 DELTA_TORQUE = 0.05
@@ -20,7 +20,7 @@ joystick.init()
 print(f"Controller: {joystick.get_name()}")
 
 # Load pendulum model (has motor actuator "torque" on joint "pin")
-model = mujoco.MjModel.from_xml_path(dsm.get_asset_path("mujoco_models/pendulum1.xml"))
+model = mujoco.MjModel.from_xml_path(dms.get_asset_path("mujoco_models/pendulum1.xml"))
 data = mujoco.MjData(model)
 
 # Start pendulum hanging down (qpos=0 is vertical in this model)

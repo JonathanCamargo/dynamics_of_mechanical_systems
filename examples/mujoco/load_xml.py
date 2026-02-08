@@ -1,5 +1,5 @@
 # Load a MuJoCo XML model and run a real-time simulation in the viewer.
-# Accepts a file path or a dsm asset name (e.g. "pendulum").
+# Accepts a file path or a dms asset name (e.g. "pendulum").
 #
 # Usage:
 #   python load_xml.py pendulum
@@ -9,13 +9,13 @@
 
 import argparse
 from pathlib import Path
-import dsm
+import dms
 import mujoco
 import mujoco.viewer
 import time
 
 parser = argparse.ArgumentParser(description="Load and simulate a MuJoCo XML model.")
-parser.add_argument("model", help="Path to XML file or dsm asset name (e.g. 'pendulum')")
+parser.add_argument("model", help="Path to XML file or dms asset name (e.g. 'pendulum')")
 parser.add_argument("--qpos", type=float, nargs="+", help="Initial joint positions")
 parser.add_argument("--qvel", type=float, nargs="+", help="Initial joint velocities")
 args = parser.parse_args()
@@ -23,7 +23,7 @@ args = parser.parse_args()
 if Path(args.model).is_file():
     model_path = args.model
 else:
-    model_path = dsm.get_asset_path("mujoco_models/" + args.model + ".xml")
+    model_path = dms.get_asset_path("mujoco_models/" + args.model + ".xml")
 model = mujoco.MjModel.from_xml_path(model_path)
 data = mujoco.MjData(model)
 

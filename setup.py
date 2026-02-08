@@ -35,7 +35,7 @@ setup(
     python_requires=">=3.8",
     include_package_data=True,  # Include non-Python files (e.g., data, docs)
     package_data={
-        "dsm": ["assets/mujoco_models/*.xml"],
+        "dms": ["assets/mujoco_models/*.xml"],
     },
     entry_points={  # If you have command-line scripts, add them here
         "console_scripts": [

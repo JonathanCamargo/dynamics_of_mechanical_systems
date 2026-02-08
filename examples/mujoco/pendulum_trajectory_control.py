@@ -11,12 +11,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mujoco
 import mujoco.viewer
-import dsm
+import dms
 
 # ========================
 # MODEL
 # ========================
-model = mujoco.MjModel.from_xml_path(dsm.get_asset_path("mujoco_models/pendulum1.xml"))
+model = mujoco.MjModel.from_xml_path(dms.get_asset_path("mujoco_models/pendulum1.xml"))
 data = mujoco.MjData(model)
 
 # ========================

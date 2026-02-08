@@ -10,10 +10,10 @@ def get_asset_path(name):
     """Return the path to a bundled asset file.
 
     Usage:
-        path = dsm.get_asset_path("mujoco_models/pendulum.xml")
+        path = dms.get_asset_path("mujoco_models/pendulum.xml")
     """
     parts = name.replace("\\", "/").split("/")
-    resource = files("dsm.assets")
+    resource = files("dms.assets")
     for part in parts:
         resource = resource / part
     return str(resource)
