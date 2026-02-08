@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(git mv:*)",
-      "Bash(git -C \"C:/git/dynamics_of_mechanical_systems\" mv \"src/dsm_temp.py\" \"src/dsm/__init__.py\")"
+      "Bash(git -C \"C:/git/dynamics_of_mechanical_systems\" mv \"src/dsm_temp.py\" \"src/dsm/__init__.py\")",
+      "Bash(pip show:*)",
+      "Bash(python:*)"
     ]
   }
 }
