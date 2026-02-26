@@ -111,7 +111,12 @@ _MPL_RC = {
 # ── Canvas ───────────────────────────────────────────────────────────────────
 
 class RobotCanvas(FigureCanvas):
-    """Matplotlib canvas that draws the robot and emits click/drag signals."""
+    """Matplotlib canvas that draws the robot and emits click/drag signals.
+
+    Uses blitting for fast redraws: the static background (axes, grid, ticks)
+    is rasterized once and cached; each frame only the dynamic artists are
+    redrawn on top of that cached image.
+    """
 
     ik_requested = pyqtSignal(float, float)
 
@@ -131,7 +136,11 @@ class RobotCanvas(FigureCanvas):
         self.ax.set_aspect("equal")
         self.ax.grid(True)
 
-        # Pre-create artists for fast updates
+        # Pre-create artists for fast updates (animated=True excludes
+        # them from the normal full-figure draw so they don't burn into
+        # the cached background).
+        self._animated_artists = []
+
         self._link_artists = {}
         for lk in model.get_links():
             key = f"{lk.start}->{lk.end}"
@@ -140,8 +149,10 @@ class RobotCanvas(FigureCanvas):
                 color=lk.color,
                 linewidth=lk.linewidth,
                 solid_capstyle="round",
+                animated=True,
             )
             self._link_artists[key] = line
+            self._animated_artists.append(line)
 
         self._point_artists = {}
         for pt in model.get_points():
@@ -151,20 +162,30 @@ class RobotCanvas(FigureCanvas):
                 color=pt.color,
                 markersize=pt.size,
                 linestyle="none",
+                animated=True,
             )
             self._point_artists[pt.name] = marker
+            self._animated_artists.append(marker)
 
         # IK target cross-hair
         (self._target,) = self.ax.plot(
             [], [], "+", color="#f38ba8", markersize=18, markeredgewidth=1.5,
+            animated=True,
         )
+        self._animated_artists.append(self._target)
 
         # EEF trail
         self._trail = deque(maxlen=800)
         self._show_trail = False
         (self._trail_line,) = self.ax.plot(
             [], [], color="#f38ba8", alpha=0.45, linewidth=1.2,
+            animated=True,
         )
+        self._animated_artists.append(self._trail_line)
+
+        # Blitting state -- background captured after first full draw
+        self._bg = None
+        self.mpl_connect("draw_event", self._on_draw)
 
         # Mouse interaction state
         self._ik_active = False
@@ -173,13 +194,32 @@ class RobotCanvas(FigureCanvas):
         self.mpl_connect("motion_notify_event", self._on_motion)
         self.mpl_connect("button_release_event", self._on_release)
 
+    # -- blitting ---------------------------------------------------------------
+
+    def _on_draw(self, event):
+        """Called after every full figure draw (initial render + resize).
+        Capture the static background so subsequent frames can blit."""
+        self._bg = self.copy_from_bbox(self.ax.bbox)
+
+    def _blit(self):
+        """Fast redraw: restore cached background, redraw only the animated
+        artists, then blit the result to screen."""
+        if self._bg is None:
+            # First frame -- full draw to prime the background, then
+            # fall through to blit the artists on top.
+            self.draw()
+        self.restore_region(self._bg)
+        for artist in self._animated_artists:
+            self.ax.draw_artist(artist)
+        self.blit(self.ax.bbox)
+
     # -- interaction ------------------------------------------------------------
 
     def set_ik_mode(self, active: bool):
         self._ik_active = active
         if not active:
             self._target.set_data([], [])
-            self.draw_idle()
+            self._blit()
 
     def _on_press(self, event):
         if self._ik_active and event.inaxes == self.ax and event.button == 1:
@@ -222,18 +262,18 @@ class RobotCanvas(FigureCanvas):
         else:
             self._trail_line.set_data([], [])
 
-        self.draw_idle()
+        self._blit()
 
     def set_show_trail(self, show: bool):
         self._show_trail = show
         if not show:
             self._trail_line.set_data([], [])
-            self.draw_idle()
+            self._blit()
 
     def clear_trail(self):
         self._trail.clear()
         self._trail_line.set_data([], [])
-        self.draw_idle()
+        self._blit()
 
 
 # ── Joint slider widget ──────────────────────────────────────────────────────
@@ -387,8 +427,8 @@ class RobotViewer(QMainWindow):
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(1, 1)
 
-        # Initial draw
-        self._update_fk()
+        # Initial draw -- deferred so the canvas has a valid pixel buffer
+        QTimer.singleShot(0, self._update_fk)
 
     # ── serial setup -----------------------------------------------------------
 
