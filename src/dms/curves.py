@@ -53,3 +53,48 @@ def elipse(center, a, b, n=100):
     xx = center[0] + a*np.cos(tt)
     yy = center[1] + b*np.sin(tt)
     return xx, yy
+
+def cubic_interp(x0, v0, xf, vf):
+    """Return a cubic interpolator f(tt) with f(0)=x0, f'(0)=v0, f(1)=xf, f'(1)=vf.
+
+    Works for scalars and R^n vectors. For vector inputs, f(tt) with
+    tt of shape (N,) returns an array of shape (N, dim).
+    """
+    a0 = np.asarray(x0)
+    a1 = np.asarray(v0)
+    a2 = 3*(np.asarray(xf) - a0) - 2*a1 - np.asarray(vf)
+    a3 = 2*(a0 - np.asarray(xf)) + a1 + np.asarray(vf)
+    def f(tt):
+        tt = np.asarray(tt, dtype=float)
+        if a0.ndim == 0:
+            return a0 + a1*tt + a2*tt**2 + a3*tt**3
+        t = tt[..., np.newaxis]
+        return a0 + a1*t + a2*t**2 + a3*t**3
+    return f
+
+def quintic_interp(x0, v0, a0, xf, vf, af):
+    """Return a quintic interpolator f(tt) with f(0)=x0, f'(0)=v0, f''(0)=a0,
+    f(1)=xf, f'(1)=vf, f''(1)=af.
+
+    Works for scalars and R^n vectors. For vector inputs, f(tt) with
+    tt of shape (N,) returns an array of shape (N, dim).
+    """
+    x0 = np.asarray(x0, dtype=float)
+    v0 = np.asarray(v0, dtype=float)
+    a0 = np.asarray(a0, dtype=float)
+    xf = np.asarray(xf, dtype=float)
+    vf = np.asarray(vf, dtype=float)
+    af = np.asarray(af, dtype=float)
+    c0 = x0
+    c1 = v0
+    c2 = a0 / 2
+    c3 = 10*(xf - x0) - 6*v0 - 1.5*a0 + 0.5*af - 4*vf
+    c4 = -15*(xf - x0) + 8*v0 + 1.5*a0 - af + 7*vf
+    c5 = 6*(xf - x0) - 3*v0 - 0.5*a0 + 0.5*af - 3*vf
+    def f(tt):
+        tt = np.asarray(tt, dtype=float)
+        if c0.ndim == 0:
+            return c0 + c1*tt + c2*tt**2 + c3*tt**3 + c4*tt**4 + c5*tt**5
+        t = tt[..., np.newaxis]
+        return c0 + c1*t + c2*t**2 + c3*t**3 + c4*t**4 + c5*t**5
+    return f

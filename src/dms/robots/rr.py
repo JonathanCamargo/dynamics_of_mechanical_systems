@@ -1,60 +1,86 @@
-import sympy
-import numpy as np
-import matplotlib.pyplot as plt
+"""
+RR -- 2-DOF serial revolute-revolute arm.
+
+Implements ``RobotModel`` so it can be used with the robot viewer.
+The symbolic model is built once then all runtime queries use fast
+lambdified numpy functions.
+"""
+
 from sympy import symbols
-from sympy.physics.mechanics import dynamicsymbols,ReferenceFrame
-from .. import getComponents
-from scipy.optimize import least_squares
+from sympy.physics.mechanics import dynamicsymbols, ReferenceFrame
 
-class rr:
-    def __init__(self,params=None):
-        L1,L2=symbols('L1,L2')
-        if params==None:
-            self.params={'L1':1,'L2':1}
-        else:
-            self.params=params
-        # Define symbolic variables for each joint
-        theta1,theta2=dynamicsymbols('theta1,theta2')
-        self.joint_angles=[theta1,theta2]
-        # Define symbolic variables for constant parameters
-        # Define reference frames for each segment
-        N=ReferenceFrame('N')
-        A=N.orientnew('A','Axis',(theta1,N.z))
-        B=A.orientnew('B','Axis',(theta2,N.z))
-        self.frames=[N,A,B]
-        r1=A.x*L1
-        r2=B.x*L2    
-        
-        points={'O':0*N.x,'A':r1,'EEF':r1+r2,'B':r1+0.95*r2,'deltaEffX':L1*0.075*B.x,'deltaEffY':L1*0.05*B.y}
-        self.points=points
-        self.points_fun=dict([(key,self.lambdifier(points[key])) for key in points.keys()])
+from .model import RobotModel, JointInfo, LinkDrawing, PointDrawing
 
-    def lambdifier(self,point):
-        return sympy.lambdify(self.joint_angles,[eq.subs(self.params) for eq in getComponents(point,self.frames[0])])
 
-    def plot(self,theta1,theta2):
-            points_num=dict([(key,np.array(self.points_fun[key](theta1,theta2))) for key in self.points_fun.keys()])
-            # effector:
-            C_left=points_num['B']-points_num['deltaEffY']
-            C_right=points_num['B']+points_num['deltaEffY']
-            D_left=C_left+points_num['deltaEffX']
-            D_right=C_right+points_num['deltaEffX']
-            plt.plot([points_num['O'][0],points_num['A'][0]],[points_num['O'][1],points_num['A'][1]],'b')
-            plt.plot([points_num['A'][0],points_num['B'][0]],[points_num['A'][1],points_num['B'][1]],'r')
-            plt.plot([points_num['B'][0],C_left[0]],[points_num['B'][1],C_left[1]],'r')
-            plt.plot([points_num['B'][0],C_right[0]],[points_num['B'][1],C_right[1]],'r')
-            plt.plot([C_left[0],D_left[0]],[C_left[1],D_left[1]],'r')
-            plt.plot([C_right[0],D_right[0]],[C_right[1],D_right[1]],'r')
-            plt.axis('equal')
-            
-    def er2_fun(self,thetas,pos_deseada):
-            pos=np.array(self.points_fun['EEF'](*thetas))[0:2]
-            er2=np.sum((pos-pos_deseada)**2)
-            return er2
-            
-    def IK(self,pos_deseada,x0=None):
-        if x0 is not list:
-            if x0 is None:
-                x0=[0.2,0.2]
-        result=least_squares(self.er2_fun,x0,args=[pos_deseada])
-        return result
+class RR(RobotModel):
+    """2-DOF serial arm (two revolute joints)."""
+
+    eef_name = "EEF"
+    ik_tolerance = 0.02
+
+    def __init__(self, params=None):
+        if params is None:
+            params = {"L1": 1, "L2": 1}
+        self._params = params
+        self._build_model()
+
+    # ── symbolic build (runs once) ────────────────────────────────────────
+
+    def _build_model(self):
+        L1, L2 = symbols("L1 L2")
+        theta1, theta2 = dynamicsymbols("theta1 theta2")
+        self._theta = [theta1, theta2]
+
+        N = ReferenceFrame("N")
+        A = N.orientnew("A", "Axis", (theta1, N.z))
+        B = A.orientnew("B", "Axis", (theta2, N.z))
+
+        param_subs = {L1: self._params["L1"], L2: self._params["L2"]}
+
+        r1 = A.x * L1
+        r2 = B.x * L2
+
+        # Named points
+        pts = {}
+        pts["O"]       = 0 * N.x
+        pts["A"]       = r1
+        pts["EEF"]     = r1 + r2
+        pts["B"]       = r1 + 0.95 * r2
+        pts["C_left"]  = pts["B"] - L1 * 0.05 * B.y
+        pts["C_right"] = pts["B"] + L1 * 0.05 * B.y
+        pts["D_left"]  = pts["C_left"]  + L1 * 0.075 * B.x
+        pts["D_right"] = pts["C_right"] + L1 * 0.075 * B.x
+
+        self._lambdify_points(self._theta, pts, N, param_subs)
+
+        # Reach for view limits
+        self._reach = self._params["L1"] + self._params["L2"]
+
+    # ── RobotModel interface ──────────────────────────────────────────────
+
+    def joint_info(self):
+        return [
+            JointInfo("Joint 1", -180, 180, 45),
+            JointInfo("Joint 2", -180, 180, -45),
+        ]
+
+    def get_links(self):
+        return [
+            LinkDrawing("O",       "A",       "#89b4fa", 3),   # blue  - link 1
+            LinkDrawing("A",       "B",       "#f38ba8", 3),   # red   - link 2
+            LinkDrawing("B",       "C_left",  "#f38ba8", 2),   # gripper
+            LinkDrawing("B",       "C_right", "#f38ba8", 2),
+            LinkDrawing("C_left",  "D_left",  "#f38ba8", 2),
+            LinkDrawing("C_right", "D_right", "#f38ba8", 2),
+        ]
+
+    def get_points(self):
+        return [
+            PointDrawing("O",   "s", "#cdd6f4", 8),    # base pivot
+            PointDrawing("A",   "o", "#bac2de", 6),     # elbow
+            PointDrawing("EEF", "*", "#f38ba8", 14),    # end-effector
+        ]
+
+    def view_limits(self):
+        r = self._reach * 1.15
+        return ((-r, r), (-r, r))

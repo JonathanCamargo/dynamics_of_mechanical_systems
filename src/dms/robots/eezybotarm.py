@@ -11,11 +11,13 @@ import sympy
 from sympy.physics.mechanics import dynamicsymbols, ReferenceFrame
 from scipy.optimize import fsolve, least_squares
 
-from robot_viewer.model import RobotModel, JointInfo, LinkDrawing, PointDrawing
+from .model import RobotModel, JointInfo, LinkDrawing, PointDrawing
 
 
 class EEZYbotARM(RobotModel):
     """2-DOF parallel mechanism (8 bodies, 6 loop-closure constraints)."""
+
+    eef_name = "EEF1"
 
     def __init__(self):
         print("  Building symbolic model ...")
@@ -73,12 +75,7 @@ class EEZYbotARM(RobotModel):
             + LEEF01y * frames["H"].y
         )
 
-        # Lambdify every point -> callable(theta_A .. theta_H) -> [x, y]
-        self._pts_fn = {}
-        for name, vec in pts.items():
-            x_expr = vec.dot(N.x).subs(params)
-            y_expr = vec.dot(N.y).subs(params)
-            self._pts_fn[name] = sympy.lambdify(theta, [x_expr, y_expr], "numpy")
+        self._lambdify_points(theta, pts, N, params)
 
         # Loop-closure equations  (6 scalar eqs for 6 unknowns)
         eqL1 = (
@@ -174,9 +171,6 @@ class EEZYbotARM(RobotModel):
             PointDrawing("F1",   "o", "#bac2de", 5),
             PointDrawing("EEF1", "*", "#f38ba8", 14),   # end-effector
         ]
-
-    def end_effector_name(self):
-        return "EEF1"
 
     def view_limits(self):
         return ((-0.18, 0.15), (-0.10, 0.20))

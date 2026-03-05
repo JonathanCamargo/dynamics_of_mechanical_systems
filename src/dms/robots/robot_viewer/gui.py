@@ -3,7 +3,7 @@ Real-time robot mechanism viewer.
 
 Usage::
 
-    from robot_viewer import launch
+    from dms.robots.robot_viewer import launch
     launch(my_robot, title="My Robot")
 """
 
@@ -27,7 +27,7 @@ from PyQt5.QtWidgets import (                          # noqa: E402
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal         # noqa: E402
 from PyQt5.QtGui import QFont                          # noqa: E402
 
-from .model import RobotModel                          # noqa: E402
+from ..model import RobotModel                           # noqa: E402
 
 # ── Dark theme stylesheet ────────────────────────────────────────────────────
 

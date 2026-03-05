@@ -10,8 +10,8 @@ if __name__ == "__main__":
     print("EEZYbotARM Viewer")
     print("=" * 40)
 
-    from robots.eezybotarm import EEZYbotARM
+    from dms.robots import EEZYbotARM
     robot = EEZYbotARM()
 
-    from robot_viewer import launch
+    from dms.robots.robot_viewer import launch
     launch(robot, title="EEZYbotARM Viewer")
