@@ -1,0 +1,65 @@
+<mujoco model="planar_rr_arm">
+  <!-- Planar RR serial arm: two revolute joints in the vertical X-Z plane.
+       Used by Notebook 3 (joint-space impedance) and Notebook 4 (Cartesian impedance).
+
+       Conventions (same as pendulum.xml):
+         - gravity in -Z direction, dt=0.001s
+         - both joints rotate about Y-axis → arm swings in X-Z plane
+         - ctrl[0] = torque in Nm at shoulder (joint1)
+         - ctrl[1] = torque in Nm at elbow (joint2)
+
+       Link parameters (asymmetric to make coupling visible):
+         - L1 = 0.4 m, m1 = 2 kg  (heavier upper arm)
+         - L2 = 0.3 m, m2 = 1 kg  (lighter forearm)
+       Mass matrix off-diagonal M12 ≈ m2*L1*(L2/2)*cos(q2) ≈ 0.06 kg·m² at q2=0,
+       giving ~22% coupling relative to M11 — visible in the coupling demo.
+  -->
+
+  <!-- dt=0.001s; gravity enabled: arm operates in vertical plane -->
+  <option timestep="0.001" gravity="0 0 -9.81"/>
+
+  <worldbody>
+    <!-- Overhead light for rendering -->
+    <light pos="0 0 3" dir="0 0 -1"/>
+    <!-- Ground plane for visual reference -->
+    <geom name="floor" type="plane" size="2 2 0.1" rgba="0.8 0.8 0.8 1"/>
+
+    <!-- Shoulder body: pivot at (0,0,1), elevated 1m above floor
+         (matches pendulum.xml convention: joint at 1m height) -->
+    <body name="link1" pos="0 0 1">
+      <!-- Joint 1: shoulder hinge, Y-axis rotation = planar motion in X-Z plane
+           armature=0.02 for numerical stability (larger than pendulum: heavier arm)
+           damping=0.1 small joint friction -->
+      <joint name="joint1" type="hinge" axis="0 1 0"
+             armature="0.02" damping="0.1"/>
+      <!-- Link 1: L1=0.4m capsule extending along +X at rest
+           mass=2.0 kg concentrated along rod (heavier upper arm for coupling asymmetry) -->
+      <geom name="link1_geom" type="capsule"
+            fromto="0 0 0  0.4 0 0"
+            size="0.03" mass="2.0" rgba="0.3 0.6 0.9 1"/>
+
+      <!-- Elbow body: pivot at tip of link1 (0.4m along X from shoulder) -->
+      <body name="link2" pos="0.4 0 0">
+        <!-- Joint 2: elbow hinge, same Y-axis rotation
+             armature=0.01; damping=0.05 -->
+        <joint name="joint2" type="hinge" axis="0 1 0"
+               armature="0.01" damping="0.05"/>
+        <!-- Link 2: L2=0.3m capsule extending along +X from elbow
+             mass=1.0 kg (lighter forearm — asymmetry amplifies off-diagonal M term) -->
+        <geom name="link2_geom" type="capsule"
+              fromto="0 0 0  0.3 0 0"
+              size="0.025" mass="1.0" rgba="0.9 0.6 0.3 1"/>
+        <!-- End-effector site at tip of link2 (for Jacobian in Notebook 4).
+             Red sphere marks the end-effector in the viewer. -->
+        <site name="ee" pos="0.3 0 0" size="0.02" rgba="1 0 0 1"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Motor 1: ctrl[0] = torque in Nm at shoulder joint (no gearing) -->
+    <motor name="motor1" joint="joint1" gear="1"/>
+    <!-- Motor 2: ctrl[1] = torque in Nm at elbow joint -->
+    <motor name="motor2" joint="joint2" gear="1"/>
+  </actuator>
+</mujoco>

@@ -1,18 +1,33 @@
-<mujoco model="simple_pendulum">
-  <option gravity="0 0 -9.81" timestep="0.002"/>
-  
+<mujoco model="pendulum">
+  <!-- Simple 1-DOF pendulum for impedance control with gravity compensation -->
+
+  <!-- dt=0.001s; gravity enabled (unlike MSD notebook) -->
+  <option timestep="0.001" gravity="0 0 -9.81"/>
+
   <worldbody>
-    <light name="top" pos="0 0 2"/>
-    <camera name="side" pos="0 3 0.5" xyaxes="-1 0 0 0 0 1"/>
-    <camera name="top" pos="0 3 0.5" xyaxes="0 1 0 0 0 1"/>
-    <body name="pendulum" pos="0 0 1">
-      <joint name="hinge" type="hinge" axis="0 1 0" damping="0.1"/>
-      <geom name="rod" type="capsule" fromto="0 0 0 0 0 -1" size="0.05" rgba="0.8 0.3 0.3 1"/>
-      <geom name="mass" type="sphere" pos="0 0 -1" size="0.1" rgba="0.3 0.3 0.8 1"/>
+    <!-- Overhead light for rendering -->
+    <light pos="0 0 3" dir="0 0 -1"/>
+    <!-- Ground plane for visual reference -->
+    <geom name="floor" type="plane" size="2 2 0.1" rgba="0.8 0.8 0.8 1"/>
+
+    <!-- Pendulum link: hinge at 1m height, swings in X-Z plane -->
+    <body name="link" pos="0 0 1">
+      <!-- Hinge joint: axis=Y so pendulum swings forward/backward in default camera view
+           armature=0.01 for numerical stability; damping=0.05 small joint friction -->
+      <joint name="hinge" type="hinge" axis="0 1 0"
+             damping="0.05" armature="0.01"/>
+      <!-- Light rod: 0.5m capsule, negligible mass (0.05 kg) -->
+      <geom name="rod" type="capsule" fromto="0 0 0 0.5 0 0"
+            size="0.02" mass="0.05" rgba="0.6 0.6 0.9 1"/>
+      <!-- 1 kg tip mass: sphere at end of rod -->
+      <geom name="tip_mass" type="sphere" pos="0.5 0 0"
+            size="0.05" mass="1.0" rgba="0.9 0.3 0.3 1"/>
     </body>
   </worldbody>
 
-  <sensor>
-    <jointpos name="theta" joint="hinge"/>
-  </sensor>
+  <actuator>
+    <!-- Motor: ctrl[0] = torque in Nm applied to hinge
+         gear=1 means no scaling; NOT a position servo -->
+    <motor name="hinge_motor" joint="hinge" gear="1"/>
+  </actuator>
 </mujoco>

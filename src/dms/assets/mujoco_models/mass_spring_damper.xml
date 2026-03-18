@@ -1,0 +1,42 @@
+<mujoco model="mass_spring_damper">
+  <!-- 1-DOF mass on frictionless rail with wall contact for impedance control tutorial -->
+
+  <!-- dt=0.001s; gravity disabled for pure horizontal dynamics; RK4 for accuracy -->
+  <option timestep="0.001" gravity="0 0 0" integrator="RK4"/>
+
+  <default>
+    <!-- Frictionless contacts: condim=3 gives normal + 2 tangential directions -->
+    <geom condim="3" friction="0 0 0"/>
+  </default>
+
+  <worldbody>
+    <!-- Ground plane: visual reference only -->
+    <geom name="floor" type="plane" size="2 2 0.1" rgba="0.8 0.8 0.8 1"/>
+
+    <!-- Sliding mass: 1 kg box on frictionless rail along X axis -->
+    <body name="mass" pos="0 0 0.05">
+      <!-- Prismatic joint: slides along X, range +/-1m
+           damping=0.1 is small structural damping (NOT the impedance B) -->
+      <joint name="slide" type="slide" axis="1 0 0"
+             range="-1 1" damping="0.1"/>
+      <!-- 1 kg, 10cm cube -->
+      <geom name="mass_geom" type="box" size="0.05 0.05 0.05"
+            mass="1.0" rgba="0.2 0.5 0.8 1"/>
+    </body>
+
+    <!-- Wall: static obstacle at x=0.5m for contact interaction -->
+    <body name="wall" pos="0.5 0 0.05">
+      <!-- Thin wall (2cm thick, 20cm wide/tall) with soft contact parameters
+           solimp: contact compliance; solref: 2ms time constant, critically damped -->
+      <geom name="wall_geom" type="box" size="0.01 0.1 0.1"
+            rgba="0.8 0.3 0.2 1"
+            solimp="0.99 0.999 0.001" solref="0.002 1"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <!-- Motor: ctrl[0] = force in Newtons applied to slide joint
+         gear=1 means no scaling; NOT a position servo -->
+    <motor name="force_motor" joint="slide" gear="1" ctrllimited="false"/>
+  </actuator>
+</mujoco>

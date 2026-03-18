@@ -1,0 +1,31 @@
+<mujoco model="mass_spring_damper_coarse">
+  <!-- Same as mass_spring_damper.xml but with dt=0.01s to demonstrate gain-timestep instability -->
+
+  <!-- dt=0.01s (10x coarser) makes K_max = 1/(4*m*dt^2) = 2500 N/m visible -->
+  <option timestep="0.01" gravity="0 0 0" integrator="RK4"/>
+
+  <default>
+    <geom condim="3" friction="0 0 0"/>
+  </default>
+
+  <worldbody>
+    <geom name="floor" type="plane" size="2 2 0.1" rgba="0.8 0.8 0.8 1"/>
+
+    <body name="mass" pos="0 0 0.05">
+      <joint name="slide" type="slide" axis="1 0 0"
+             range="-1 1" damping="0.1"/>
+      <geom name="mass_geom" type="box" size="0.05 0.05 0.05"
+            mass="1.0" rgba="0.2 0.5 0.8 1"/>
+    </body>
+
+    <body name="wall" pos="0.5 0 0.05">
+      <geom name="wall_geom" type="box" size="0.01 0.1 0.1"
+            rgba="0.8 0.3 0.2 1"
+            solimp="0.99 0.999 0.001" solref="0.002 1"/>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <motor name="force_motor" joint="slide" gear="1" ctrllimited="false"/>
+  </actuator>
+</mujoco>

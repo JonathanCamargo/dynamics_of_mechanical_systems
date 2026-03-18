@@ -1,0 +1,39 @@
+<!-- INTENTIONALLY WRONG site order for NB05 routing demo -->
+<mujoco model="pendulum_cable_intro_wrong_order">
+  <option timestep="0.005" gravity="0 0 -9.81"/>  <!-- 5 ms timestep: stable for stiffness=100 -->
+
+  <worldbody>
+    <!-- Floor for visual reference -->
+    <geom name="floor" type="plane" size="2 2 0.1" pos="0 0 0" rgba="0.8 0.8 0.8 1"/>
+    <!-- Directional light for rendering -->
+    <light name="main_light" pos="0 0 3" dir="0 0 -1" diffuse="1 1 1"/>
+
+    <!-- Ceiling anchor site: fixed worldbody attachment for cable start -->
+    <site name="anchor" pos="0 0 1.0" size="0.02" rgba="1 0 0 1"/>  <!-- red: cable start -->
+
+    <!-- Via-point site: fixed corner that redirects the cable path -->
+    <site name="via" pos="0.5 0 1.0" size="0.02" rgba="1 0.5 0 1"/>  <!-- orange: via-point -->
+
+    <!-- Pendulum body: capsule rod pinned at world origin by y-axis hinge -->
+    <body name="rod" pos="0 0 0.5">  <!-- pivot at z=0.5 (mid-height) -->
+      <!-- Hinge joint: rotates in the x-z plane (axis = y-axis) -->
+      <joint name="hinge" type="hinge" axis="0 1 0" damping="0.05"/>  <!-- small damping for free swing -->
+      <!-- Capsule geom: extends from body origin to (0.4, 0, 0) -->
+      <geom name="rod_geom" type="capsule" fromto="0 0 0  0.4 0 0"
+            size="0.02" mass="0.3" rgba="0.3 0.5 0.9 1"/>  <!-- blue rod -->
+      <!-- Tip site: cable attachment at the free end of the rod -->
+      <site name="tip" pos="0.4 0 0" size="0.02" rgba="0 0.8 0 1"/>  <!-- green: cable end -->
+    </body>
+  </worldbody>
+
+  <tendon>
+    <!-- WRONG site order: anchor -> tip -> via (should be anchor -> via -> tip) -->
+    <!-- This produces a geometrically different cable path and wrong force directions -->
+    <spatial name="intro_cable" stiffness="100" springlength="0 0.8"
+             width="0.005" rgba="0.1 0.1 0.1 1">  <!-- thin black cable -->
+      <site site="anchor"/>  <!-- WRONG ORDER: ceiling -->
+      <site site="tip"/>     <!-- WRONG: should be via here -->
+      <site site="via"/>     <!-- WRONG: should be tip here -->
+    </spatial>
+  </tendon>
+</mujoco>
