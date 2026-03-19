@@ -1,4 +1,4 @@
--e .
+-e .[dev]
 zeroapi
 panda3d-gltf
 panda3d
