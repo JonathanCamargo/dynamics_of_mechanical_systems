@@ -4,6 +4,7 @@ from sympy.physics.mechanics import dynamicsymbols
 import numpy as np
 import matplotlib.pyplot as plt
 from importlib.resources import files
+from dms import mujoco
 
 
 def get_asset_path(name):

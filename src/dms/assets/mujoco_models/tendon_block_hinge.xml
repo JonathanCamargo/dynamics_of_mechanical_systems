@@ -1,0 +1,55 @@
+<mujoco model="tendon_capstone">
+  <!-- Block on ceiling rail, cable through corner pulley, drives a pendulum.
+       Same pendulum geometry as pendulum.xml, plus a cable-driven block.
+       ctrl[0] = block force [N], ctrl[1] = hinge torque [Nm] -->
+
+  <option timestep="0.001" gravity="0 0 -9.81"/>
+
+  <worldbody>
+    <light pos="0.5 -1 2" dir="0 0.5 -1"/>
+    <geom name="floor" type="plane" size="2 2 0.1" rgba="0.8 0.8 0.8 1"/>
+
+    <!-- Wall with corner pulley above the pendulum pivot -->
+    <body name="wall">
+      <geom name="wall" type="box" size="0.5 0.3 0.72" pos="-0.55 0 0.72"
+            rgba="0.7 0.7 0.7 1"/>
+      <site name="corner_pulley" pos="0.5 0 1.5" size="0.015" rgba="1 0.8 0 1"/>
+    </body>
+
+    <!-- Sliding block on ceiling rail -->
+    <body name="block" pos="-1 0 1.5">
+      <joint name="block_slide" type="slide" axis="1 0 0"
+             range="-1.0 0.5" damping="0.5" armature="0.01"/>
+      <geom name="block" type="box" size="0.05 0.05 0.03" mass="0.5"
+            rgba="0.3 0.5 0.9 1"/>
+      <site name="block_anchor" pos="0 0 0" size="0.01"/>
+    </body>
+
+    <!-- Pendulum: same geometry as pendulum.xml -->
+    <body name="link" pos="0 0 1">
+      <joint name="hinge" type="hinge" axis="0 1 0"
+             range="-86 86" damping="0.05"/>
+      <geom name="rod" type="capsule" fromto="0 0 0 0.5 0 0"
+            size="0.02" mass="0.001" rgba="0.6 0.6 0.9 1"/>
+      <geom name="tip_mass" type="sphere" pos="0.5 0 0"
+            size="0.05" mass="1.0" rgba="0.9 0.3 0.3 1"/>
+      <site name="tip" pos="0.5 0 0" size="0.01"/>
+    </body>
+  </worldbody>
+
+  <tendon>
+    <!-- Tension-only cable: block -> corner pulley -> pendulum tip.
+         springlength deadband [0, L_natural]: zero force when slack, pulls when taut. -->
+    <spatial name="cable" stiffness="200" springlength="0 2.0"
+             width="0.005" rgba="0.2 0.2 0.2 1">
+      <site site="block_anchor"/>
+      <site site="corner_pulley"/>
+      <site site="tip"/>
+    </spatial>
+  </tendon>
+
+  <actuator>
+    <motor name="block_motor" joint="block_slide" gear="1" ctrlrange="-100 100"/>
+    <motor name="hinge_motor" joint="hinge" gear="1" ctrlrange="-10 10"/>
+  </actuator>
+</mujoco>

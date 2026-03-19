@@ -10,9 +10,11 @@ Usage:
     python xml_viewer.py model.xml --key 0
 """
 import argparse
+import time
 from pathlib import Path
 
 import dms
+import dms.mujoco
 import mujoco
 import mujoco.viewer
 
@@ -46,10 +48,27 @@ def main():
         data.qvel[:len(args.qvel)] = args.qvel
     mujoco.mj_forward(model, data)
 
-    # launch() runs the viewer in the main thread — UI panels render correctly
-    # on Windows (launch_passive runs in a separate thread and can have UI issues).
-    # Built-in controls: space=pause, right arrow=step, mouse=camera, UI panels.
-    mujoco.viewer.launch(model, data)
+    cam = dms.mujoco.make_camera(model)
+
+    with mujoco.viewer.launch_passive(model, data) as viewer:
+        # Apply the auto-scaled camera
+        viewer.cam.type = cam.type
+        viewer.cam.lookat[:] = cam.lookat
+        viewer.cam.distance = cam.distance
+        viewer.cam.azimuth = cam.azimuth
+        viewer.cam.elevation = cam.elevation
+        viewer.sync()
+
+        wall_start = time.monotonic()
+        sim_start = data.time
+
+        while viewer.is_running():
+            # Step physics until simulation time catches up with wall time
+            wall_elapsed = time.monotonic() - wall_start
+            sim_target = sim_start + wall_elapsed
+            while data.time < sim_target:
+                mujoco.mj_step(model, data)
+            viewer.sync()
 
 
 if __name__ == "__main__":
