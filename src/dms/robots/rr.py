@@ -9,10 +9,11 @@ lambdified numpy functions.
 from sympy import symbols
 from sympy.physics.mechanics import dynamicsymbols, ReferenceFrame
 
-from .model import RobotModel, JointInfo, LinkDrawing, PointDrawing
+from .symbolic import SymbolicRobotModel
+from .model import JointInfo, LinkDrawing, PointDrawing
 
 
-class RR(RobotModel):
+class RR(SymbolicRobotModel):
     """2-DOF serial arm (two revolute joints)."""
 
     eef_name = "EEF"

@@ -198,8 +198,12 @@ class RobotCanvas(FigureCanvas):
 
     def _on_draw(self, event):
         """Called after every full figure draw (initial render + resize).
-        Capture the static background so subsequent frames can blit."""
+        Capture the static background, then redraw animated artists so
+        they stay visible after a resize / maximize."""
         self._bg = self.copy_from_bbox(self.ax.bbox)
+        for artist in self._animated_artists:
+            self.ax.draw_artist(artist)
+        self.blit(self.ax.bbox)
 
     def _blit(self):
         """Fast redraw: restore cached background, redraw only the animated
@@ -252,7 +256,7 @@ class RobotCanvas(FigureCanvas):
                 self._point_artists[pt.name].set_data([p[0]], [p[1]])
 
         # trail
-        eef_name = self.model.end_effector_name()
+        eef_name = self.model.eef_name
         if eef_name in points:
             self._trail.append(points[eef_name])
         if self._show_trail and self._trail:
@@ -418,6 +422,9 @@ class RobotViewer(QMainWindow):
         # ── Serial (optional) ─────────────────────────────
         self._init_serial(ctrl_layout)
 
+        # ── Actions (optional) ────────────────────────────
+        self._init_actions(ctrl_layout)
+
         # ── Gamepad (optional) ────────────────────────────
         self._init_gamepad(ctrl_layout)
 
@@ -527,6 +534,79 @@ class RobotViewer(QMainWindow):
         except self._serial_mod.SerialException:
             self._serial_toggle()
 
+    # ── actions setup ----------------------------------------------------------
+
+    def _init_actions(self, parent_layout):
+        acts = self.model.actions()
+        s_acts = self.model.serial_actions()
+        if not acts and not s_acts:
+            return
+
+        box = QGroupBox("Actions")
+        lay = QVBoxLayout(box)
+
+        for act in acts:
+            btn = QPushButton(act.name)
+            btn.clicked.connect(lambda _, a=act: self._start_action(a))
+            lay.addWidget(btn)
+
+        for sa in s_acts:
+            btn = QPushButton(sa.name)
+            btn.clicked.connect(lambda _, cmd=sa.command: self._send_action(cmd))
+            lay.addWidget(btn)
+
+        parent_layout.addWidget(box)
+
+        # Interpolation state for waypoint actions
+        self._action_timer = QTimer(self)
+        self._action_timer.timeout.connect(self._action_tick)
+        self._action_wps = []
+        self._action_idx = 0
+        self._action_progress = 0.0
+        self._action_dt = 0.0
+
+        # Name → action lookup for gamepad button_map
+        self._action_lookup = {a.name: a for a in acts}
+        self._serial_action_lookup = {sa.name: sa for sa in s_acts}
+
+    def _start_action(self, action):
+        """Begin interpolating through the action's waypoints."""
+        current = [s.get_deg() for s in self.sliders]
+        self._action_wps = [current] + [wp[:] for wp in action.waypoints]
+        self._action_idx = 0
+        self._action_progress = 0.0
+        self._action_dt = 0.02 / max(action.duration, 0.02)
+        self._action_timer.start(20)
+
+    def _action_tick(self):
+        """Advance one interpolation step toward the next waypoint."""
+        self._action_progress += self._action_dt
+        if self._action_progress >= 1.0:
+            self._action_idx += 1
+            if self._action_idx >= len(self._action_wps) - 1:
+                # Snap to final waypoint and stop
+                for s, deg in zip(self.sliders, self._action_wps[-1]):
+                    s.set_value(deg)
+                self._update_fk()
+                self._action_timer.stop()
+                return
+            self._action_progress = 0.0
+
+        wp_a = self._action_wps[self._action_idx]
+        wp_b = self._action_wps[self._action_idx + 1]
+        t = self._action_progress
+        for s, a, b in zip(self.sliders, wp_a, wp_b):
+            s.set_value(a + (b - a) * t)
+        self._update_fk()
+
+    def _send_action(self, cmd: bytes):
+        """Send a one-shot serial command."""
+        if self._serial and self._serial.is_open:
+            try:
+                self._serial.write(cmd)
+            except Exception:
+                pass
+
     # ── gamepad setup ----------------------------------------------------------
 
     def _init_gamepad(self, parent_layout):
@@ -597,6 +677,20 @@ class RobotViewer(QMainWindow):
                 self._on_ik_request(tx, ty)
 
     def _on_gp_button(self, btn: int):
+        # Check model button_map first
+        bmap = self.model.button_map()
+        name = bmap.get(btn)
+        if name:
+            lookup = getattr(self, "_action_lookup", {})
+            s_lookup = getattr(self, "_serial_action_lookup", {})
+            if name in lookup:
+                self._start_action(lookup[name])
+                return
+            if name in s_lookup:
+                self._send_action(s_lookup[name].command)
+                return
+
+        # Default GUI bindings
         if btn == 0:                                    # A / Cross
             if self.fk_btn.isChecked():
                 self.ik_btn.setChecked(True)
@@ -645,13 +739,15 @@ class RobotViewer(QMainWindow):
         except Exception:
             return
         self.canvas.update_robot(points)
-        eef = points.get(self.model.end_effector_name())
+        eef = points.get(self.model.eef_name)
         if eef:
             self._last_eef = eef
             self.eef_x_label.setText(f"X: {eef[0]*1000:7.1f} mm")
             self.eef_y_label.setText(f"Y: {eef[1]*1000:7.1f} mm")
 
     def closeEvent(self, event):
+        if hasattr(self, "_action_timer"):
+            self._action_timer.stop()
         if self._serial and self._serial.is_open:
             self._serial.close()
         if self._gamepad:

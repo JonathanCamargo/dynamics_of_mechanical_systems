@@ -58,7 +58,7 @@ def compute_workspace(robot, n=100):
     grids = np.meshgrid(*ranges)
     combos = np.column_stack([g.ravel() for g in grids])
 
-    eef_name = robot.end_effector_name()
+    eef_name = robot.eef_name
     xs, ys = [], []
     for angles in combos:
         pts = robot.forward_kinematics(list(angles))

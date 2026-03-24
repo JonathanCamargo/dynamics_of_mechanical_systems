@@ -1,4 +1,5 @@
-from .model import RobotModel, JointInfo, LinkDrawing, PointDrawing
+from .model import RobotModel, JointInfo, LinkDrawing, PointDrawing, Action, SerialAction
+from .symbolic import SymbolicRobotModel
 from .rr import RR
 from .eezybotarm import EEZYbotARM
 from .workspace import (

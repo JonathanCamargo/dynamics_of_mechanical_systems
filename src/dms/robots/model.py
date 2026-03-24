@@ -2,6 +2,15 @@
 Abstract robot model interface.
 
 Implement ``RobotModel`` to plug any 2-D planar mechanism into the viewer.
+
+Two ways to create a robot
+--------------------------
+1. **Pure numeric** -- subclass ``RobotModel`` directly and implement
+   ``forward_kinematics()`` with plain numpy (or anything else).
+
+2. **Symbolic (sympy)** -- subclass ``SymbolicRobotModel`` (from
+   ``dms.robots.symbolic``).  Define your mechanism symbolically,
+   call ``_lambdify_points()``, and FK is provided for you.
 """
 
 from abc import ABC, abstractmethod
@@ -36,20 +45,50 @@ class PointDrawing:
     size: float = 6.0
 
 
+@dataclass
+class Action:
+    """A named motion sequence through joint-angle waypoints (degrees)."""
+    name: str
+    waypoints: list[list[float]]
+    duration: float = 1.0          # seconds per waypoint transition
+
+
+@dataclass
+class SerialAction:
+    """A one-shot serial command (gripper, LED, etc.)."""
+    name: str
+    command: bytes
+
+
 class RobotModel(ABC):
     """
-    Implement this for any 2-D planar robot or mechanism.
+    Pure interface for any 2-D planar robot or mechanism.
 
-    Minimal example
-    ---------------
-    1. Define joints (actuated DOFs) in ``joint_info()``.
-    2. Implement ``forward_kinematics()`` so that given the actuated
-       joint angles it returns *all* named point positions.
-    3. Implement ``inverse_kinematics()`` to move the end-effector.
-    4. Describe the visual representation via ``get_links()`` /
-       ``get_points()``.
+    Implement every ``@abstractmethod`` below, then call
+    ``dms.robots.robot_viewer.launch(YourRobot())`` to open the GUI.
 
-    Then call ``dms.robots.robot_viewer.launch(YourRobot())`` to open the GUI.
+    Abstract methods (must implement)
+    ----------------------------------
+    - ``joint_info()``           -- actuated DOFs with limits
+    - ``forward_kinematics()``   -- joint angles → named point positions
+    - ``get_links()``            -- visual line segments between points
+    - ``get_points()``           -- visual markers at named points
+    - ``view_limits()``          -- default axis limits
+
+    Point-name contract
+    --------------------
+    The string names used in ``get_links()`` and ``get_points()`` **must**
+    appear as keys in the dict returned by ``forward_kinematics()``.
+    Call ``validate()`` after construction to verify this.
+
+    Optional overrides
+    ------------------
+    - ``inverse_kinematics()``   -- default uses numerical least-squares
+    - ``actions()``              -- waypoint motion sequences
+    - ``serial_actions()``       -- one-shot serial commands
+    - ``serial_config()``        -- enable serial port
+    - ``serial_command()``       -- build bytes to send each tick
+    - ``button_map()``           -- map gamepad buttons to actions
     """
 
     eef_name: str = "EEF"
@@ -60,14 +99,17 @@ class RobotModel(ABC):
         """Return descriptions of each actuated joint."""
         ...
 
+    @abstractmethod
     def forward_kinematics(
         self, joint_angles_rad: list[float]
     ) -> dict[str, tuple[float, float]]:
-        """Compute every named point position from the actuated angles."""
-        return {
-            name: tuple(fn(*joint_angles_rad))
-            for name, fn in self._pts_fn.items()
-        }
+        """Compute every named point position from the actuated angles.
+
+        Returns a dict mapping point name → (x, y).  Every name referenced
+        by ``get_links()``, ``get_points()``, and ``eef_name`` **must**
+        appear as a key.
+        """
+        ...
 
     def inverse_kinematics(
         self, x: float, y: float, current_angles_rad: list[float]
@@ -102,27 +144,42 @@ class RobotModel(ABC):
         """Visual specs for every point / joint marker to draw."""
         ...
 
-    def end_effector_name(self) -> str:
-        """Name of the end-effector point (must appear in FK output)."""
-        return self.eef_name
-
     @abstractmethod
     def view_limits(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """Return ``((xmin, xmax), (ymin, ymax))`` for the default view."""
         ...
 
-    # ── shared helpers ────────────────────────────────────────────────
+    # ── validation ────────────────────────────────────────────────────
 
-    def _lambdify_points(self, theta, pts, N, params):
-        """Lambdify a dict of sympy vectors into fast numpy callables."""
-        import sympy
-        self._pts_fn = {}
-        for name, vec in pts.items():
-            x_expr = vec.dot(N.x).subs(params)
-            y_expr = vec.dot(N.y).subs(params)
-            self._pts_fn[name] = sympy.lambdify(
-                theta, [x_expr, y_expr], "numpy"
+    def validate(self):
+        """Check that FK output, links, and points use consistent names.
+
+        Call after construction to catch typos early.  Raises ``ValueError``
+        with a clear message if any drawing name is missing from FK output.
+        """
+        import numpy as np
+        angles = [np.deg2rad(j.default_deg) for j in self.joint_info()]
+        pts = self.forward_kinematics(angles)
+
+        missing = []
+        for lk in self.get_links():
+            if lk.start not in pts:
+                missing.append(f"LinkDrawing start '{lk.start}'")
+            if lk.end not in pts:
+                missing.append(f"LinkDrawing end '{lk.end}'")
+        for pt in self.get_points():
+            if pt.name not in pts:
+                missing.append(f"PointDrawing '{pt.name}'")
+        if self.eef_name not in pts:
+            missing.append(f"eef_name '{self.eef_name}'")
+
+        if missing:
+            raise ValueError(
+                "Point names not found in forward_kinematics() output:\n  "
+                + "\n  ".join(missing)
             )
+
+    # ── convenience ───────────────────────────────────────────────────
 
     def plot(self, joint_angles_rad, ax=None):
         """Quick matplotlib plot of the robot at the given joint angles."""
@@ -138,6 +195,20 @@ class RobotModel(ABC):
             x, y = pts[pt.name]
             ax.plot(x, y, marker=pt.marker, color=pt.color, markersize=pt.size)
         ax.set_aspect("equal")
+
+    # ── optional actions (override to enable) ───────────────────────
+
+    def actions(self) -> list[Action]:
+        """Named motion sequences. Override to add action buttons."""
+        return []
+
+    def serial_actions(self) -> list[SerialAction]:
+        """One-shot serial commands (gripper, LED, etc.). Override to add."""
+        return []
+
+    def button_map(self) -> dict[int, str]:
+        """Map gamepad button index → action/serial-action name. Override to customize."""
+        return {}
 
     # ── optional serial support (override to enable) ──────────────────
 

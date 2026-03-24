@@ -11,13 +11,15 @@ import sympy
 from sympy.physics.mechanics import dynamicsymbols, ReferenceFrame
 from scipy.optimize import fsolve, least_squares
 
-from .model import RobotModel, JointInfo, LinkDrawing, PointDrawing
+from .symbolic import SymbolicRobotModel
+from .model import JointInfo, LinkDrawing, PointDrawing, Action, SerialAction
 
 
-class EEZYbotARM(RobotModel):
+class EEZYbotARM(SymbolicRobotModel):
     """2-DOF parallel mechanism (8 bodies, 6 loop-closure constraints)."""
 
     eef_name = "EEF1"
+    servo_ids = [8, 9, 7]   # 8 & 9 for joints, 7 for gripper
 
     def __init__(self):
         print("  Building symbolic model ...")
@@ -175,6 +177,26 @@ class EEZYbotARM(RobotModel):
     def view_limits(self):
         return ((-0.18, 0.15), (-0.10, 0.20))
 
+    # ── actions ───────────────────────────────────────────────────────
+
+    def actions(self):
+        return [
+            Action("Home", [[90, 30]]),
+            Action("Pick Up", [[90, 30], [90, -40], [60, -40]], duration=0.8),
+        ]
+
+    def serial_actions(self):
+        return [
+            SerialAction("Open Gripper",  f"Y {self.servo_ids[2]} 100\r\n".encode()),
+            SerialAction("Close Gripper", f"Y {self.servo_ids[2]} 40\r\n".encode()),
+        ]
+
+    def button_map(self):
+        return {
+            4: "Open Gripper",      # LB
+            5: "Close Gripper",     # RB
+        }
+
     # ── serial ────────────────────────────────────────────────────────
 
     def serial_config(self):
@@ -182,8 +204,9 @@ class EEZYbotARM(RobotModel):
 
     def serial_command(self, joint_angles_deg):
         a0, a1 = joint_angles_deg
-        # Servo 5 (Motor A): offset → 90 deg kinematic = 110 servo
+        # Servo 0 (Motor A): offset → 90 deg kinematic = 110 servo
         servo_0 = int(round(a0 + 20))
-        # Servo 6 (Motor B): negated + offset → 0 deg kinematic = 85 servo
+        # Servo 1 (Motor B): negated + offset → 0 deg kinematic = 85 servo
         servo_1 = int(round(85 - a1))
-        return f"Y 5 {servo_0}\r\nY 6 {servo_1}\r\n".encode()
+        s = self.servo_ids
+        return f"Y {s[0]} {servo_0}\r\nY {s[1]} {servo_1}\r\n".encode()
