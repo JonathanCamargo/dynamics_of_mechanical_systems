@@ -21,6 +21,7 @@ dependencies = [
     "scipy",
     "sympy",
     "matplotlib",
+    "networkx",
 ]
 
 [project.optional-dependencies]
