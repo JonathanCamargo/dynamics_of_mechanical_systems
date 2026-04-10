@@ -3,6 +3,7 @@ from sympy import symbols
 from sympy.physics.mechanics import dynamicsymbols
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from importlib.resources import files
 from dms import mujoco
 
@@ -50,6 +51,17 @@ def prettyAx(ax, title='', xlabel='x', ylabel='y', leyenda=False, xlim=[None, No
     
     plt.tight_layout()
     
+def plotCOM(x, y, radius=0.1, color='k', ax=None):
+    '''Plot the classic center-of-mass symbol (circle with colored/white quadrants).'''
+    if ax is None:
+        ax = plt.gca()
+    for i, theta in enumerate([0, 90, 180, 270]):
+        fc = color if i % 2 == 0 else 'w'
+        wedge = mpatches.Wedge((x, y), radius, theta, theta + 90,
+                               facecolor=fc, edgecolor=color, linewidth=1)
+        ax.add_patch(wedge)
+    return ax
+
 def ft2m(x):
     #Convierte de pies a metros
     return x*12*25.4/1000
