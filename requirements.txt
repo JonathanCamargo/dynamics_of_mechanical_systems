@@ -8,3 +8,4 @@ mujoco
 ipywidgets
 mediapy
 pytest
+PyQt5
