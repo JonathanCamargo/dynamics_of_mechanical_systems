@@ -1,4 +1,11 @@
-from SimpleThirdPersonCamera.SimpleThirdPersonCamera import SimpleThirdPersonCamera, SIMPLE_THIRD_PERSON_CAMERA_SIDE_CENTER
+import sys
+from pathlib import Path
+
+# The panda3d camera helpers live alongside the examples, not in the dms
+# package -- they are unrelated to the dynamics code and used only here.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "panda3d_cameras"))
+
+from SimpleThirdPersonCamera.SimpleThirdPersonCamera import SimpleThirdPersonCamera, SIMPLE_THIRD_PERSON_CAMERA_SIDE_CENTER  # noqa: E402
 from direct.showbase.ShowBase import ShowBase
 from direct.showbase.Loader import Loader
 from panda3d.core import AmbientLight, DirectionalLight

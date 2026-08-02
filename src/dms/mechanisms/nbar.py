@@ -37,11 +37,14 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
-import scipy
 from matplotlib import animation
 from scipy.optimize import fsolve
 from sympy import Matrix, Symbol, cos, lambdify, sin
 from sympy.physics.mechanics import dynamicsymbols
+
+from .grashof import (
+    check_loop_feasibility as _check_loop_feasibility_impl,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -272,44 +275,13 @@ def _recover_branch(solver, theta, params, prev, n_sub=5):
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# Grashof pre-feasibility checks
+# Grashof pre-feasibility checks — delegated to dms.mechanisms.grashof
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _polygon_inequality(lengths):
-    """True if the longest side is shorter than the sum of the others."""
-    lengths = np.array(lengths)
-    return float(lengths.max()) < float(lengths.sum() - lengths.max())
-
-
-def _grashof_condition(lengths_4):
-    """Grashof condition for a 4-link loop: s + l <= p + q."""
-    s = sorted(lengths_4)
-    return s[0] + s[3] <= s[1] + s[2]
-
-
 def _check_loop_feasibility(G, link_lengths):
-    """Check polygon inequality for every independent loop.
-
-    Parameters
-    ----------
-    G : nx.Graph
-        Mechanism topology.
-    link_lengths : list[float]
-        Lengths indexed by node.
-
-    Returns
-    -------
-    bool
-        True if all loops satisfy the polygon inequality (necessary for
-        the mechanism to close).
-    """
-    loops = nx.cycle_basis(G)
-    for loop in loops:
-        loop_lengths = [link_lengths[node] for node in loop]
-        if not _polygon_inequality(loop_lengths):
-            return False
-    return True
+    """Necessary closure check over every independent loop of *G*."""
+    return _check_loop_feasibility_impl(nx.cycle_basis(G), link_lengths)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -690,14 +662,7 @@ class NBarMechanism:
             True if every loop satisfies the polygon inequality and (for
             4-link loops) the Grashof condition.
         """
-        loops = nx.cycle_basis(self.G)
-        for loop in loops:
-            loop_lengths = [self.lengths[n] for n in loop]
-            if not _polygon_inequality(loop_lengths):
-                return False
-            if len(loop) == 4 and not _grashof_condition(loop_lengths):
-                return False
-        return True
+        return _check_loop_feasibility_impl(nx.cycle_basis(self.G), self.lengths)
 
     # ── plotting ──────────────────────────────────────────────────────
 

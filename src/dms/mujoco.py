@@ -1,6 +1,3 @@
-import mujoco
-
-
 def make_camera(model, azimuth=90, elevation=-20, distance_scale=2.0):
     """Create a free camera auto-scaled to the model geometry.
 
@@ -13,6 +10,7 @@ def make_camera(model, azimuth=90, elevation=-20, distance_scale=2.0):
     Returns:
         MjvCamera ready to pass to renderer.update_scene(data, camera=cam).
     """
+    import mujoco  # lazy: only load the native lib when actually rendering
     cam = mujoco.MjvCamera()
     cam.type = mujoco.mjtCamera.mjCAMERA_FREE
     cam.lookat[:] = model.stat.center

@@ -60,6 +60,60 @@ class SerialAction:
     command: bytes
 
 
+@dataclass
+class ServoCal:
+    """Affine map from a joint angle to a servo command, both in degrees.
+
+        servo = servo_ref + gain * (q_deg - q_ref)
+
+    Write down a pose you actually measured rather than a bare offset:
+    "joint A vertical (q=90) reads 110 on the servo" becomes
+    ``ServoCal(8, q_ref=90, servo_ref=110)``.
+
+    ``gain`` carries the sign -- use -1 when the servo turns against the
+    joint's positive sense -- and the scale, for a geared or lever-driven
+    joint where one degree of joint is not one degree of servo.
+
+    This is per physical arm: it changes every time a horn comes off a
+    spline, unlike the kinematics.
+    """
+    id: int
+    q_ref: float = 0.0
+    servo_ref: float = 90.0
+    gain: float = 1.0
+    lo: float = 0.0
+    hi: float = 180.0
+
+    def raw(self, q_deg: float) -> float:
+        """Servo command, unclamped -- what the joint angle *asks* for."""
+        return self.servo_ref + self.gain * (q_deg - self.q_ref)
+
+    def to_servo(self, q_deg: float) -> float:
+        """Servo command, clamped into ``[lo, hi]``."""
+        return min(self.hi, max(self.lo, self.raw(q_deg)))
+
+    def to_joint(self, servo_deg: float) -> float:
+        """Inverse map -- for checking a calibration against the real arm."""
+        return self.q_ref + (servo_deg - self.servo_ref) / self.gain
+
+    def servo_range_for(self, joint: "JointInfo") -> tuple[float, float]:
+        """Servo interval swept by a joint's full travel, low first.
+
+        Sorted because a negative ``gain`` maps ``min_deg`` to the upper end.
+        """
+        a, b = self.raw(joint.min_deg), self.raw(joint.max_deg)
+        return (min(a, b), max(a, b))
+
+    @classmethod
+    def from_two_points(cls, id, q1, s1, q2, s2, **kw) -> "ServoCal":
+        """Derive gain and offset from two jogged-and-measured poses.
+
+        Recovers the sign from the measurements, so you never have to reason
+        about which way the horn turns.
+        """
+        return cls(id, q_ref=q1, servo_ref=s1, gain=(s2 - s1) / (q2 - q1), **kw)
+
+
 class RobotModel(ABC):
     """
     Pure interface for any 2-D planar robot or mechanism.
@@ -93,6 +147,18 @@ class RobotModel(ABC):
 
     eef_name: str = "EEF"
     ik_tolerance: float = 1e-3
+
+    #: One ``ServoCal`` per actuated joint, in ``joint_info()`` order.
+    #: Set it (class attribute or in ``__init__``) and the default
+    #: ``serial_command()`` below builds the packet for you.
+    servo_cal: list = []
+
+    #: Servo id of a gripper, if there is one.  Set it and the default
+    #: ``serial_actions()`` and ``button_map()`` provide open/close.
+    gripper_id: int | None = None
+
+    #: Set to enable the serial link; see ``serial_config()``.
+    serial_baudrate: int | None = None
 
     @abstractmethod
     def joint_info(self) -> list[JointInfo]:
@@ -179,6 +245,45 @@ class RobotModel(ABC):
                 + "\n  ".join(missing)
             )
 
+        self.validate_servo_cal()
+
+    def validate_servo_cal(self):
+        """Check each joint's travel fits inside its servo's range.
+
+        A wrong ``gain`` sign usually swings the mapped range off the end of
+        ``[lo, hi]``, so this catches it at construction rather than by the
+        arm driving into a hard stop.
+        """
+        joints = self.joint_info()
+        # Joint sanity holds with or without servos attached.
+        for ji in joints:
+            if ji.min_deg >= ji.max_deg:
+                raise ValueError(
+                    f"{ji.name}: min_deg ({ji.min_deg}) must be < max_deg "
+                    f"({ji.max_deg}); IK bounds require it too."
+                )
+            if not ji.min_deg <= ji.default_deg <= ji.max_deg:
+                raise ValueError(
+                    f"{ji.name}: default_deg ({ji.default_deg}) is outside "
+                    f"[{ji.min_deg}, {ji.max_deg}]; the slider would clamp it."
+                )
+
+        if not self.servo_cal:
+            return
+        if len(self.servo_cal) != len(joints):
+            raise ValueError(
+                f"servo_cal has {len(self.servo_cal)} entries but there are "
+                f"{len(joints)} actuated joints."
+            )
+        for ji, c in zip(joints, self.servo_cal):
+            s_lo, s_hi = c.servo_range_for(ji)
+            if s_lo < c.lo - 1e-9 or s_hi > c.hi + 1e-9:
+                raise ValueError(
+                    f"{ji.name}: travel [{ji.min_deg}, {ji.max_deg}] deg maps "
+                    f"to servo {c.id} range [{s_lo:.1f}, {s_hi:.1f}], outside "
+                    f"[{c.lo}, {c.hi}]. Wrong gain sign, or narrow the limits."
+                )
+
     # ── convenience ───────────────────────────────────────────────────
 
     def plot(self, joint_angles_rad, ax=None):
@@ -203,19 +308,54 @@ class RobotModel(ABC):
         return []
 
     def serial_actions(self) -> list[SerialAction]:
-        """One-shot serial commands (gripper, LED, etc.). Override to add."""
-        return []
+        """One-shot serial commands (gripper, LED, etc.).
+
+        Set ``gripper_id`` to get open/close buttons for free; override for
+        anything else.
+        """
+        if self.gripper_id is None:
+            return []
+        return [
+            SerialAction("Open Gripper",
+                         f"Y {self.gripper_id} 100\r\n".encode()),
+            SerialAction("Close Gripper",
+                         f"Y {self.gripper_id} 40\r\n".encode()),
+        ]
 
     def button_map(self) -> dict[int, str]:
-        """Map gamepad button index → action/serial-action name. Override to customize."""
-        return {}
+        """Map gamepad button index → action/serial-action name.
+
+        Defaults to the gripper on the shoulder buttons when there is one.
+        Override to customize.
+        """
+        if self.gripper_id is None:
+            return {}
+        return {
+            4: "Open Gripper",      # LB
+            5: "Close Gripper",     # RB
+        }
 
     # ── optional serial support (override to enable) ──────────────────
 
     def serial_config(self) -> dict:
-        """Return ``{'baudrate': 9600, ...}`` to enable serial. Empty = off."""
-        return {}
+        """Return ``{'baudrate': 9600, ...}`` to enable serial. Empty = off.
+
+        Set ``serial_baudrate`` for the common case; override for extra
+        settings such as ``write_timeout`` or ``send_interval_ms``.
+        """
+        if self.serial_baudrate is None:
+            return {}
+        return {"baudrate": self.serial_baudrate}
 
     def serial_command(self, joint_angles_deg: list[float]) -> bytes | None:
-        """Build the bytes to send over serial, or *None* to skip."""
-        return None
+        """Build the bytes to send over serial, or *None* to skip.
+
+        Default: map each joint angle through ``servo_cal`` and emit one
+        ``Y <id> <deg>`` line per joint.  Override for a different protocol.
+        """
+        if not self.servo_cal:
+            return None
+        return "".join(
+            f"Y {c.id} {int(round(c.to_servo(q)))}\r\n"
+            for c, q in zip(self.servo_cal, joint_angles_deg)
+        ).encode()

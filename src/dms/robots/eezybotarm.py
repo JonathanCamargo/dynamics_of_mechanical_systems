@@ -12,14 +12,16 @@ from sympy.physics.mechanics import dynamicsymbols, ReferenceFrame
 from scipy.optimize import fsolve, least_squares
 
 from .symbolic import SymbolicRobotModel
-from .model import JointInfo, LinkDrawing, PointDrawing, Action, SerialAction
+from .model import JointInfo, LinkDrawing, PointDrawing, Action
 
 
 class EEZYbotARM(SymbolicRobotModel):
     """2-DOF parallel mechanism (8 bodies, 6 loop-closure constraints)."""
 
     eef_name = "EEF1"
-    servo_ids = [8, 9, 7]   # 8 & 9 for joints, 7 for gripper
+    servo_ids = [8, 9]      # joint servos; serial_command() uses these
+    gripper_id = 7
+    serial_baudrate = 115200
 
     def __init__(self):
         print("  Building symbolic model ...")
@@ -185,22 +187,10 @@ class EEZYbotARM(SymbolicRobotModel):
             Action("Pick Up", [[90, 30], [90, -40], [60, -40]], duration=0.8),
         ]
 
-    def serial_actions(self):
-        return [
-            SerialAction("Open Gripper",  f"Y {self.servo_ids[2]} 100\r\n".encode()),
-            SerialAction("Close Gripper", f"Y {self.servo_ids[2]} 40\r\n".encode()),
-        ]
-
-    def button_map(self):
-        return {
-            4: "Open Gripper",      # LB
-            5: "Close Gripper",     # RB
-        }
+    # serial_actions() and button_map() are inherited: gripper_id drives the
+    # Open/Close buttons and their LB/RB bindings.
 
     # ── serial ────────────────────────────────────────────────────────
-
-    def serial_config(self):
-        return {"baudrate": 115200}
 
     def serial_command(self, joint_angles_deg):
         a0, a1 = joint_angles_deg

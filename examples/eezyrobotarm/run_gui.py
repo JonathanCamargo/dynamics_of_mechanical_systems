@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Launch the Cosita robot real-time viewer.
+Launch the Eezybotarm robot real-time viewer.
 
 Usage:
     python run_gui.py

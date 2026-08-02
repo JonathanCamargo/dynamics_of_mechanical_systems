@@ -9,3 +9,4 @@ ipywidgets
 mediapy
 pytest
 PyQt5
+pyserial

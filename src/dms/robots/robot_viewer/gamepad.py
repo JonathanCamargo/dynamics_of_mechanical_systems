@@ -6,6 +6,7 @@ simply disabled.
 """
 
 import os
+import time
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
@@ -29,6 +30,9 @@ class GamepadManager(QObject):
     connected = pyqtSignal(str)       # controller name
     disconnected = pyqtSignal()
 
+    #: Seconds between device scans while nothing is connected.
+    RESCAN_S = 2.0
+
     def __init__(self, poll_ms: int = 16, deadzone: float = 0.12, parent=None):
         super().__init__(parent)
         if not _HAS_PYGAME:
@@ -41,6 +45,7 @@ class GamepadManager(QObject):
         self._joy = None
         self._deadzone = deadzone
         self._prev_buttons: set[int] = set()
+        self._last_scan = time.monotonic()
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._poll)
@@ -51,8 +56,17 @@ class GamepadManager(QObject):
     # ------------------------------------------------------------------
 
     def _try_connect(self):
-        pygame.joystick.quit()
-        pygame.joystick.init()
+        """Grab the first joystick, if one is attached.
+
+        Deliberately no ``pygame.joystick.quit()/init()`` cycle here.  That
+        used to be the way to re-detect hot-plugged devices, but SDL2 reports
+        hotplug through the event queue that ``_poll`` already pumps, so
+        ``get_count()`` is current without it.  The cycle also had two real
+        costs: it re-enumerated every device (measured at ~540 ms on a machine
+        with a SpaceMouse attached), and it invalidated the Joystick objects
+        held by *any* other GamepadManager in the process -- polling one of
+        those freed handles segfaults the interpreter.
+        """
         if pygame.joystick.get_count() > 0:
             self._joy = pygame.joystick.Joystick(0)
             self._joy.init()
@@ -69,7 +83,13 @@ class GamepadManager(QObject):
             return
 
         if self._joy is None:
-            self._try_connect()
+            # pygame.joystick.quit()/init() re-enumerates every device and can
+            # take hundreds of milliseconds.  At the 16 ms poll rate that would
+            # freeze the GUI thread outright, so scan only occasionally.
+            now = time.monotonic()
+            if now - self._last_scan >= self.RESCAN_S:
+                self._last_scan = now
+                self._try_connect()
             return
 
         # Check still alive

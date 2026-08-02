@@ -16,7 +16,6 @@ class ClosedSpline:
     def __init__(self, points,n=100):
         self.points = np.array(points)
         self.tt = np.linspace(0, 1, n)
-        t=np.linspace(0, 1, len(self.points))
         self.interp,u = scipy.interpolate.splprep([self.points[:,0],self.points[:,1]],s=0,per=True)
         self.xx,self.yy = scipy.interpolate.splev(self.tt,self.interp)
         
